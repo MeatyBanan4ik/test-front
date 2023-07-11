@@ -14,4 +14,6 @@ FROM node:lts-alpine
 COPY --from=Builder /worker /worker
 WORKDIR /worker
 
+RUN npm install --global serve
+
 CMD ["npm", "run", "serve"]
