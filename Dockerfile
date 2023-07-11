@@ -1,18 +1,17 @@
 FROM node:lts as Builder
 
-COPY ./ /frontend
+WORKDIR /worker
 
-WORKDIR /frontend
+COPY ./ /worker
 
-RUN make build
-
-RUN yarn build
+RUN yarn install && yarn add serve && yarn build
 
 ###################################################################################
 ############################## Build clear app image ##############################
 
 FROM node:lts-alpine
 
-COPY --from=Builder /frontend /frontend
+COPY --from=Builder /worker /worker
+WORKDIR /worker
 
-WORKDIR /frontend
+CMD ["npm", "run", "serve"]
