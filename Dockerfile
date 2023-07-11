@@ -16,4 +16,4 @@ WORKDIR /worker
 
 RUN yarn add global serve
 
-CMD ["npm", "run", "serve"]
+CMD ["yarn", "serve", "-p", "3001"]
