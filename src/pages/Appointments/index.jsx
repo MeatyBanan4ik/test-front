@@ -4,7 +4,6 @@ import axios from 'axios';
 import Modal from '../../components/Modal';
 import useStorage from '../../hooks/useStorage';
 import useWebsocket from '../../hooks/useWebsocket';
-import range from '../../utils/common.utils';
 
 function Appointments() {
 	const [cardInfo, setCardInfo] = useState({});
@@ -31,8 +30,8 @@ function Appointments() {
 		setOldAppointment((prev) => [...(prev || []), ...(items || [])]);
 	}, []);
 
-	const getColor = (item, appointments) => {
-		const newArr = appointments?.filter(
+	const getColor = (item, data) => {
+		const arr = data?.filter(
 			(obj) =>
 				(obj.doctor === item.doctor && obj.timeStart === item.timeStart) ||
 				(obj.patient === item.patient && obj.timeStart === item.timeStart),
@@ -45,14 +44,16 @@ function Appointments() {
 			item.timeStart >= item.patientDetails.timeEnd ||
 			!item.timeStart
 		) {
-			return 'red';
+			// eslint-disable-next-line no-param-reassign
+			item.color = 'red';
+		} else if (arr.length > 1) {
+			// eslint-disable-next-line no-param-reassign
+			item.color = 'yellow';
+		} else {
+			// eslint-disable-next-line no-param-reassign
+			item.color = 'green';
 		}
-
-		if (newArr.length > 1) {
-			return 'yellow';
-		}
-
-		return 'green';
+		return item;
 	};
 
 	useEffect(() => {
@@ -69,7 +70,9 @@ function Appointments() {
 				const {
 					data: { total: appointmentTotal, items: appointments },
 					// eslint-disable-next-line no-await-in-loop
-				} = await axios.get('api/hospital/appointments');
+				} = await axios.get('api/hospital/appointments', {
+					params: { skip, limit },
+				});
 
 				Array.prototype.push.apply(items, appointments);
 
@@ -85,116 +88,139 @@ function Appointments() {
 		};
 	}, []);
 
-	const getTime = (doctorsTime, patientTime, arr, step = 0) => {
-		if (step === 10) return arr;
-
-		for (const app of arr) {
-			if (
-				app.timeStart &&
-				app.timeStart in doctorsTime[app.doctor] &&
-				doctorsTime[app.doctor][app.timeStart].length <= 1 &&
-				app.timeStart in patientTime[app.patient] &&
-				patientTime[app.patient][app.timeStart].length <= 1
-			) {
-				if (patientTime[app.patient][app.timeStart].length === 0) {
-					patientTime[app.patient][app.timeStart].push(app.doctor);
-				}
-
-				if (doctorsTime[app.doctor][app.timeStart].length === 0) {
-					doctorsTime[app.doctor][app.timeStart].push(app.patient);
-				}
-				// eslint-disable-next-line no-continue
-				continue;
-			}
-
-			for (const i of range(
-				app.patientDetails.timeStart,
-				app.patientDetails.timeEnd,
-			)) {
-				if (
-					i in doctorsTime[app.doctor] &&
-					doctorsTime[app.doctor][i].length === 0 &&
-					patientTime[app.patient][i].length === 0
-				) {
-					doctorsTime[app.doctor][i].push(app.patient);
-					patientTime[app.patient][i].push(app.doctor);
-					app.timeStart = i;
-					break;
-				}
-			}
-		}
-
-		const redApp = arr.filter(
-			(app) => !['blue', 'green'].includes(getColor(app, arr)),
+	const getColorCombination = (item, appointments) => {
+		const checkUser = appointments.some(
+			(value) =>
+				value.timeStart === item.timeStart &&
+				(value.doctor === item.doctor || value.patient === item.patient),
 		);
-		if (redApp.length > 0) {
-			redApp.forEach((app) => {
-				let doctorChange = false;
-				let patientChange = false;
 
-				Object.keys(doctorsTime[app.doctor]).forEach((key) => {
-					if (doctorsTime[app.doctor][key].includes(app.patient)) {
-						doctorsTime[app.doctor][key].filter((pat) => pat !== app.patient);
-						doctorChange = true;
-					}
-				});
+		if (!checkUser) {
+			// eslint-disable-next-line no-param-reassign
+			item.color = item.timeStart === item.oldTimeStart ? 'green' : 'blue';
+			appointments.push(item);
+		} else {
+			// eslint-disable-next-line no-param-reassign
+			item.color = 'red';
+		}
+		return item;
+	};
 
-				Object.keys(patientTime[app.patient]).forEach((key) => {
-					if (patientTime[app.patient][key].includes(app.doctor)) {
-						patientTime[app.patient][key].filter((doc) => doc !== app.doctor);
-						patientChange = true;
-					}
-				});
+	const getAllTime = (appointments) => {
+		appointments.map((item) => {
+			const allCombinations = [];
+			const timeStart =
+				item.doctorDetails.timeStart >= item.patientDetails.timeStart
+					? item.doctorDetails.timeStart
+					: item.patientDetails.timeStart;
+			const timeEnd =
+				item.doctorDetails.timeEnd <= item.patientDetails.timeEnd
+					? item.doctorDetails.timeEnd
+					: item.patientDetails.timeEnd;
 
-				if (!doctorChange && !patientChange) {
-					// eslint-disable-next-line no-param-reassign
-					doctorsTime[app.doctor] = Object.keys(doctorsTime[app.doctor]).reduce(
-						(obj, time) => ({ ...obj, [time]: [] }),
-						{},
-					);
-					// eslint-disable-next-line no-param-reassign
-					patientTime[app.patient] = Object.keys(
-						patientTime[app.patient],
-					).reduce((obj, time) => ({ ...obj, [time]: [] }), {});
-				}
-			});
+			for (let i = timeStart; i < timeEnd; i++) {
+				allCombinations.push(i);
+			}
+			// eslint-disable-next-line no-param-reassign
+			item.combinations = allCombinations;
+			return item;
+		});
+		return appointments;
+	};
 
-			return getTime(doctorsTime, patientTime, arr, step + 1);
+	const getAllTimeAppointments = (appointments) => {
+		let allCombinations = [];
+		function generateCombinations(
+			// eslint-disable-next-line no-shadow
+			appointments,
+			currentIndex = 0,
+			combinationArr = [],
+		) {
+			if (currentIndex === appointments.length) {
+				const arr = [];
+				combinationArr.map((item) => getColorCombination(item, arr));
+
+				allCombinations = [...allCombinations, [...combinationArr]];
+				return;
+			}
+
+			const currentData = appointments[currentIndex].combinations;
+
+			for (let i = 0; i < currentData.length; i++) {
+				const result = {
+					patient: appointments[currentIndex].patient,
+					doctor: appointments[currentIndex].doctor,
+					timeStart: currentData[i],
+					oldTimeStart: appointments[currentIndex].timeStart,
+				};
+				combinationArr.push(result);
+
+				generateCombinations(appointments, currentIndex + 1, combinationArr);
+
+				combinationArr.pop();
+			}
 		}
 
-		return arr;
+		generateCombinations(appointments);
+		return allCombinations;
+	};
+
+	const resolveConflictingAppointments = (appointments) => {
+		const allTime = getAllTime(appointments);
+		const allTimeAppointments = getAllTimeAppointments(allTime);
+		const sortCombination = allTimeAppointments.sort((a, b) => {
+			if (
+				a.filter((item) => item.color === 'red').length <
+				b.filter((item) => item.color === 'red').length
+			) {
+				return -1;
+			}
+			if (
+				a.filter((item) => item.color === 'red').length >
+				b.filter((item) => item.color === 'red').length
+			) {
+				return 1;
+			}
+			if (
+				a.filter((item) => item.color === 'green').length >
+				b.filter((item) => item.color === 'green').length
+			) {
+				return -1;
+			}
+			if (
+				a.filter((item) => item.color === 'green').length <
+				b.filter((item) => item.color === 'green').length
+			) {
+				return 1;
+			}
+			return 0;
+		});
+		return sortCombination[0];
 	};
 
 	useEffect(() => {
-		const doctorsTime = {};
-		const patientTime = {};
+		oldAppointment.forEach((item) => getColor(item, oldAppointment));
 
-		oldAppointment.forEach((el) => {
-			if (!(el.doctor in doctorsTime)) {
-				doctorsTime[el.doctor] = [
-					...range(el.doctorDetails.timeStart, el.doctorDetails.timeEnd),
-				].reduce((obj, i) => ({ ...obj, [i]: [] }), {});
-			}
-			if (el.timeStart in doctorsTime[el.doctor])
-				doctorsTime[el.doctor][el.timeStart].push(el.patient);
-		});
+		setNewAppointment(
+			resolveConflictingAppointments(
+				JSON.parse(JSON.stringify(oldAppointment)),
+			).sort((a, b) => {
+				if (b.patient > a.patient) return -1;
+				if (b.patient < a.patient) return 1;
 
-		oldAppointment.forEach((el) => {
-			if (!(el.patient in patientTime)) {
-				patientTime[el.patient] = [
-					...range(el.patientDetails.timeStart, el.patientDetails.timeEnd),
-				].reduce((obj, i) => ({ ...obj, [i]: [] }), {});
-			}
-			if (el.timeStart in patientTime[el.patient])
-				patientTime[el.patient][el.timeStart].push(el.doctor);
-		});
+				if (b.doctor > a.doctor) return -1;
+				if (b.doctor < a.doctor) return 1;
 
-		setNewAppointment(getTime(doctorsTime, patientTime, oldAppointment));
+				if (a.timeStart && b.timeStart && b.timeStart > a.timeStart) return -1;
+				if (a.timeStart && b.timeStart && b.timeStart < a.timeStart) return 1;
+
+				return 0;
+			}),
+		);
 	}, [oldAppointment]);
 
-	const updateData = async () => {
-		await axios.delete('api/hospital');
-		await axios.post('api/hospital', newAppointment);
+	const updateData = async (appointments) => {
+		await axios.put('api/hospital/appointments', { appointments });
 	};
 
 	return (
@@ -211,32 +237,30 @@ function Appointments() {
 						</thead>
 						<tbody>
 							{oldAppointment &&
-								oldAppointment.map((item) => {
-									const color = getColor(item, oldAppointment);
-
-									return (
-										<tr>
-											<td style={{ backgroundColor: color }}>{item.patient}</td>
-											<td style={{ backgroundColor: color }}>{item.doctor}</td>
-											<td style={{ backgroundColor: color }}>
-												{item.timeStart}
-											</td>
-										</tr>
-									);
-								})}
+								oldAppointment.map((item) => (
+									<tr key={`${item.doctor}_${item.patient}_${item.timeStart}`}>
+										<td style={{ backgroundColor: item.color }}>
+											{item.patient}
+										</td>
+										<td style={{ backgroundColor: item.color }}>
+											{item.doctor}
+										</td>
+										<td style={{ backgroundColor: item.color }}>
+											{item.timeStart}
+										</td>
+									</tr>
+								))}
 						</tbody>
 					</Table>
 					{Object.entries(
-						oldAppointment
-							.map((item) => getColor(item, oldAppointment))
-							.reduce(
-								(obj, item) => {
-									// eslint-disable-next-line no-param-reassign
-									obj[item] += 1;
-									return obj;
-								},
-								{ red: 0, blue: 0, yellow: 0, green: 0 },
-							),
+						oldAppointment.reduce(
+							(obj, item) => {
+								// eslint-disable-next-line no-param-reassign
+								obj[item.color] += 1;
+								return obj;
+							},
+							{ red: 0, blue: 0, yellow: 0, green: 0 },
+						),
 					).reduce((str, item) => `${str}, ${item[0]}: ${item[1]} `, '')}
 				</Col>
 
@@ -251,47 +275,46 @@ function Appointments() {
 						</thead>
 						<tbody>
 							{newAppointment &&
-								newAppointment.map((item) => {
-									const color = getColor(item, newAppointment);
-
-									return (
-										<tr
-											onClick={() =>
-												openViewCard(
-													item.patientDetails,
-													item.doctorDetails,
-													item.timeStart,
-												)
-											}
-										>
-											<td style={{ backgroundColor: color }}>{item.patient}</td>
-											<td style={{ backgroundColor: color }}>{item.doctor}</td>
-											<td style={{ backgroundColor: color }}>
-												{item.timeStart}
-												<span className="float-end">View Card</span>
-											</td>
-										</tr>
-									);
-								})}
+								newAppointment.map((item) => (
+									<tr
+										key={`${item.doctor}_${item.patient}_${item.timeStart}`}
+										onClick={() =>
+											openViewCard(
+												item.patientDetails,
+												item.doctorDetails,
+												item.timeStart,
+											)
+										}
+									>
+										<td style={{ backgroundColor: item.color }}>
+											{item.patient}
+										</td>
+										<td style={{ backgroundColor: item.color }}>
+											{item.doctor}
+										</td>
+										<td style={{ backgroundColor: item.color }}>
+											{item.timeStart}
+											<span className="float-end">View Card</span>
+										</td>
+									</tr>
+								))}
 						</tbody>
 					</Table>
 					{Object.entries(
-						newAppointment
-							.map((item) => getColor(item, oldAppointment))
-							.reduce(
-								(obj, item) => {
-									// eslint-disable-next-line no-param-reassign
-									obj[item] += 1;
-									return obj;
-								},
-								{ red: 0, blue: 0, yellow: 0, green: 0 },
-							),
+						newAppointment.reduce(
+							(obj, item) => {
+								// eslint-disable-next-line no-param-reassign
+								obj[item.color] += 1;
+								return obj;
+							},
+							{ red: 0, blue: 0, yellow: 0, green: 0 },
+						),
 					).reduce((str, item) => `${str}, ${item[0]}: ${item[1]} `, '')}
 				</Col>
 			</Row>
 			<Row className="justify-content-end pt-5">
 				<Col xs="auto">
-					<Button variant="success" onClick={updateData}>
+					<Button variant="success" onClick={() => updateData(newAppointment)}>
 						Save Data
 					</Button>
 				</Col>
