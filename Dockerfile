@@ -14,6 +14,6 @@ FROM node:lts-alpine
 COPY --from=Builder /worker /worker
 WORKDIR /worker
 
-RUN yarn add global serve
+RUN yarn global add serve
 
 CMD ["yarn", "serve", "-p", "3001"]
