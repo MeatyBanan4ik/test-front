@@ -1,6 +1,4 @@
-ARG NODE_VERSION
-
-FROM node:${NODE_VERSION} as Builder
+FROM node:lts as Builder
 
 COPY ./ /frontend
 
@@ -13,7 +11,7 @@ RUN yarn build
 ###################################################################################
 ############################## Build clear app image ##############################
 
-FROM node:${NODE_VERSION}-alpine
+FROM node:lts-alpine
 
 COPY --from=Builder /frontend /frontend
 
