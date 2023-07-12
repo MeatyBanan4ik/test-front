@@ -190,6 +190,7 @@ function Appointments() {
 			}
 			return 0;
 		});
+
 		return sortCombination[0];
 	};
 
