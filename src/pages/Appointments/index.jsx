@@ -125,7 +125,7 @@ function Appointments() {
 			item.combinations = allCombinations;
 		});
 
-		let allCombinations = [];
+		const allCombinations = [];
 		function generateCombinations(
 			// eslint-disable-next-line no-shadow
 			appointments,
@@ -134,9 +134,9 @@ function Appointments() {
 		) {
 			if (currentIndex === appointments.length) {
 				const arr = [];
-				combinationArr.map((item) => getColorCombination(item, arr));
-
-				allCombinations = [...allCombinations, [...combinationArr]];
+				Array.prototype.push.apply(allCombinations, [
+					combinationArr.map((item) => getColorCombination(item, arr)),
+				]);
 				return;
 			}
 
