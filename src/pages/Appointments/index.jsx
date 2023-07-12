@@ -109,14 +109,14 @@ function Appointments() {
 	const getAllTimeAppointments = (appointments) => {
 		appointments.forEach((item) => {
 			const allCombinations = [];
-			const timeStart =
-				item.doctorDetails.timeStart >= item.patientDetails.timeStart
-					? item.doctorDetails.timeStart
-					: item.patientDetails.timeStart;
-			const timeEnd =
-				item.doctorDetails.timeEnd <= item.patientDetails.timeEnd
-					? item.doctorDetails.timeEnd
-					: item.patientDetails.timeEnd;
+			const timeStart = Math.max(
+				item.doctorDetails.timeStart,
+				item.patientDetails.timeStart,
+			);
+			const timeEnd = Math.max(
+				item.doctorDetails.timeEnd,
+				item.patientDetails.timeEnd,
+			);
 
 			for (let i = timeStart; i < timeEnd; i++) {
 				allCombinations.push(i);
