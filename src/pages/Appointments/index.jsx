@@ -95,41 +95,38 @@ function Appointments() {
 				(value.doctor === item.doctor || value.patient === item.patient),
 		);
 
-		if (!checkUser) {
-			// eslint-disable-next-line no-param-reassign
-			item.color = item.timeStart === item.oldTimeStart ? 'green' : 'blue';
-			appointments.push(item);
-		} else {
-			// eslint-disable-next-line no-param-reassign
-			item.color = 'red';
-		}
+		// eslint-disable-next-line no-param-reassign,no-nested-ternary
+		item.color = !checkUser
+			? item.timeStart === item.oldTimeStart
+				? 'green'
+				: 'blue'
+			: 'red';
+		appointments.push(item);
 		return item;
 	};
 
-	const getAllTime = (appointments) => {
+	const getAllTime = (appointments) =>
 		appointments.map((item) => {
-			const allCombinations = [];
-			const timeStart =
-				item.doctorDetails.timeStart >= item.patientDetails.timeStart
-					? item.doctorDetails.timeStart
-					: item.patientDetails.timeStart;
-			const timeEnd =
-				item.doctorDetails.timeEnd <= item.patientDetails.timeEnd
-					? item.doctorDetails.timeEnd
-					: item.patientDetails.timeEnd;
-
-			for (let i = timeStart; i < timeEnd; i++) {
-				allCombinations.push(i);
-			}
+			const timeStart = Math.max(
+				item.doctorDetails.timeStart,
+				item.patientDetails.timeStart,
+			);
+			const timeEnd = Math.min(
+				item.doctorDetails.timeEnd,
+				item.patientDetails.timeEnd,
+			);
+			const allCombinations = Array.from(
+				{ length: timeEnd - timeStart },
+				(_, i) => timeStart + i,
+			);
 			// eslint-disable-next-line no-param-reassign
 			item.combinations = allCombinations;
 			return item;
 		});
-		return appointments;
-	};
 
 	const getAllTimeAppointments = (appointments) => {
-		let allCombinations = [];
+		const allCombinations = [];
+
 		function generateCombinations(
 			// eslint-disable-next-line no-shadow
 			appointments,
@@ -137,10 +134,8 @@ function Appointments() {
 			combinationArr = [],
 		) {
 			if (currentIndex === appointments.length) {
-				const arr = [];
-				combinationArr.map((item) => getColorCombination(item, arr));
-
-				allCombinations = [...allCombinations, [...combinationArr]];
+				const arr = combinationArr.map((item) => getColorCombination(item, []));
+				allCombinations.push(arr);
 				return;
 			}
 
@@ -154,9 +149,7 @@ function Appointments() {
 					oldTimeStart: appointments[currentIndex].timeStart,
 				};
 				combinationArr.push(result);
-
 				generateCombinations(appointments, currentIndex + 1, combinationArr);
-
 				combinationArr.pop();
 			}
 		}
@@ -168,6 +161,7 @@ function Appointments() {
 	const resolveConflictingAppointments = (appointments) => {
 		const allTime = getAllTime(appointments);
 		const allTimeAppointments = getAllTimeAppointments(allTime);
+
 		const sortCombination = allTimeAppointments.sort((a, b) => {
 			if (
 				a.filter((item) => item.color === 'red').length <
@@ -195,6 +189,7 @@ function Appointments() {
 			}
 			return 0;
 		});
+
 		return sortCombination[0];
 	};
 
