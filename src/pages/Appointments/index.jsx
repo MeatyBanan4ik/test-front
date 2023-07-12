@@ -106,8 +106,8 @@ function Appointments() {
 		return item;
 	};
 
-	const getAllTime = (appointments) => {
-		appointments.map((item) => {
+	const getAllTimeAppointments = (appointments) => {
+		appointments.forEach((item) => {
 			const allCombinations = [];
 			const timeStart =
 				item.doctorDetails.timeStart >= item.patientDetails.timeStart
@@ -123,12 +123,8 @@ function Appointments() {
 			}
 			// eslint-disable-next-line no-param-reassign
 			item.combinations = allCombinations;
-			return item;
 		});
-		return appointments;
-	};
 
-	const getAllTimeAppointments = (appointments) => {
 		let allCombinations = [];
 		function generateCombinations(
 			// eslint-disable-next-line no-shadow
@@ -166,8 +162,7 @@ function Appointments() {
 	};
 
 	const resolveConflictingAppointments = (appointments) => {
-		const allTime = getAllTime(appointments);
-		const allTimeAppointments = getAllTimeAppointments(allTime);
+		const allTimeAppointments = getAllTimeAppointments(appointments);
 		const sortCombination = allTimeAppointments.sort((a, b) => {
 			if (
 				a.filter((item) => item.color === 'red').length <
